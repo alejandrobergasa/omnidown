@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ app_name }} | Descarga video y audio</title>
+  <meta name="description" content="Descarga contenido en MP4 o MP3 desde varias plataformas pegando una URL.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-mark">OD</span>
+      <div>
+        <p class="eyebrow">Downloader web</p>
+        <h1>{{ app_name }}</h1>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="#how-it-works">Como funciona</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+  </header>
+
+  <main class="page-shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">MVP escalable para una sola instancia</p>
+        <h2>Descargas rápidas de vídeo y audio con una experiencia limpia y monetizable.</h2>
+        <p class="hero-text">
+          Pega una URL, analiza las calidades disponibles y descarga el formato que necesites.
+        </p>
+        <ul class="hero-points">
+          <li>YouTube, Instagram, TikTok, Twitter/X y más</li>
+          <li>Opciones MP4 y audio con conversión a MP3</li>
+          <li>Estructura preparada para anuncios y crecimiento</li>
+        </ul>
+      </div>
+      <aside class="ad-slot ad-slot-hero" aria-label="Espacio publicitario">
+        <span>Google Ads</span>
+      </aside>
+    </section>
+
+    <section class="card tool-card">
+      <form id="download-form" class="download-form">
+        <label for="video-url">URL del vídeo o post</label>
+        <div class="input-row">
+          <input
+            id="video-url"
+            name="url"
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=..."
+            required
+          >
+          <button type="submit" id="analyze-button">Analizar</button>
+        </div>
+        <p class="help-text">Soporta plataformas compatibles con `yt-dlp`. La extracción puede tardar unos segundos.</p>
+      </form>
+
+      <div id="status" class="status" aria-live="polite"></div>
+
+      <section id="result-card" class="result-card hidden" aria-live="polite">
+        <div class="result-header">
+          <img id="thumbnail" class="thumbnail hidden" alt="Miniatura del contenido">
+          <div>
+            <p id="platform-badge" class="platform-badge"></p>
+            <h3 id="media-title"></h3>
+            <p id="media-meta" class="meta"></p>
+          </div>
+        </div>
+
+        <div class="result-actions">
+          <label for="format-select">Formato disponible</label>
+          <select id="format-select"></select>
+
+          <label for="audio-format">Formato de audio final</label>
+          <select id="audio-format">
+            <option value="mp3">MP3</option>
+            <option value="m4a">M4A</option>
+            <option value="wav">WAV</option>
+          </select>
+
+          <button id="download-button" type="button">Descargar</button>
+        </div>
+      </section>
+    </section>
+
+    <section class="content-grid" id="how-it-works">
+      <article class="card info-card">
+        <h3>Arquitectura MVP</h3>
+        <p>Frontend renderizado por FastAPI, API ligera, `yt-dlp` para extracción y descarga, y nginx como reverse proxy.</p>
+      </article>
+      <article class="card info-card">
+        <h3>Preparada para escalar</h3>
+        <p>Podemos añadir cola Redis + RQ/Celery cuando las descargas largas empiecen a bloquear workers o quieras histórico.</p>
+      </article>
+      <aside class="card ad-slot ad-slot-side" aria-label="Espacio publicitario lateral">
+        <span>Ads Sidebar</span>
+      </aside>
+    </section>
+
+    <section class="card faq-card" id="faq">
+      <h3>Notas del MVP</h3>
+      <p>Este MVP prioriza simplicidad, rapidez de despliegue y una única instancia. La responsabilidad legal y cumplimiento con términos de plataformas debe revisarse antes de abrirlo al público.</p>
+    </section>
+  </main>
+
+  <script>
+    window.APP_CONFIG = {
+      defaultTimeout: {{ default_timeout }}
+    };
+  </script>
+  <script src="/static/js/app.js" defer></script>
+</body>
+</html>
