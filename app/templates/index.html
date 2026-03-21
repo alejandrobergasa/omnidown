@@ -1,119 +1,154 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ locale }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ app_name }} | Descarga video y audio</title>
-  <meta name="description" content="Descarga contenido en MP4 o MP3 desde varias plataformas pegando una URL.">
+  <title>{% if locale == "es" %}{{ app_name }} | Descarga video y audio{% else %}{{ app_name }} | Download video and audio{% endif %}</title>
+  <meta name="description" content="{% if locale == 'es' %}Descarga contenido en MP4 o audio pegando una URL.{% else %}Download MP4 video or audio by pasting a URL.{% endif %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Ir al contenido principal</a>
+  <a class="skip-link" id="skip-link" href="#main-content">{% if locale == "es" %}Ir al contenido principal{% else %}Skip to main content{% endif %}</a>
+
+  <div class="page-backdrop"></div>
 
   <header class="site-header">
-    <div class="brand">
+    <a class="brand" href="/">
       <span class="brand-mark">OD</span>
-      <div>
-        <h1>{{ app_name }}</h1>
+      <div class="brand-copy">
+        <span class="brand-name">{{ app_name }}</span>
+        <span class="brand-tag" id="brand-tag">{% if locale == "es" %}Descarga limpia ✨{% else %}Clean downloads ✨{% endif %}</span>
       </div>
-    </div>
-    <nav class="header-nav">
-      <a href="#recent-list">Recientes</a>
-    </nav>
+    </a>
   </header>
 
   <main id="main-content" class="page-shell">
-    <section class="intro-block">
-      <p class="eyebrow">Descarga directa</p>
-      <h2>Video o audio sin rodeos.</h2>
-      <p class="intro-text">Pega una URL, revisa las opciones y descarga el formato que quieras.</p>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow" id="hero-eyebrow">{% if locale == "es" %}Minimal downloader{% else %}Minimal downloader{% endif %}</p>
+        <h1 id="hero-title">{% if locale == "es" %}Pega la URL. Elige formato.<br>Descarga 🚀{% else %}Paste the URL. Choose format.<br>Download 🚀{% endif %}</h1>
+        <p class="hero-text" id="hero-text">{% if locale == "es" %}Una experiencia limpia para descargar video o audio sin rodeos.{% else %}A clean way to download video or audio without the clutter.{% endif %}</p>
+      </div>
     </section>
 
-    <section class="card tool-card">
-      <form id="download-form" class="download-form">
-        <label for="video-url">URL</label>
-        <div class="input-row">
-          <div class="input-stack">
-            <input
-              id="video-url"
-              name="url"
-              type="url"
-              placeholder="https://www.youtube.com/watch?v=..."
-              required
-            >
-            <div class="input-actions">
-              <button type="button" id="paste-button" class="secondary-button">Pegar</button>
-              <button type="button" id="clear-button" class="ghost-button">Limpiar</button>
-            </div>
-          </div>
-          <button type="submit" id="analyze-button">Analizar</button>
+    <section class="card studio-card">
+      <div class="studio-head">
+        <div>
+          <p class="studio-kicker" id="studio-kicker">{% if locale == "es" %}Descarga segura 🔒{% else %}Reliable download 🔒{% endif %}</p>
+          <h2 class="studio-title" id="studio-title">{% if locale == "es" %}Pega el enlace y elige una opcion{% else %}Paste the link and choose an option{% endif %}</h2>
         </div>
-        <div id="url-helper" class="url-helper">Pega una URL completa para analizarla.</div>
+      </div>
+
+      <form id="download-form" class="download-form">
+        <label class="field-label" id="url-label" for="video-url">{% if locale == "es" %}Enlace{% else %}Link{% endif %}</label>
+        <div class="url-composer">
+          <input
+            id="video-url"
+            name="url"
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=..."
+            required
+          >
+          <button type="button" id="paste-button" class="secondary-button">{% if locale == "es" %}Pegar{% else %}Paste{% endif %}</button>
+          <button type="submit" id="analyze-button">{% if locale == "es" %}Analizar{% else %}Analyze{% endif %}</button>
+        </div>
+        <div class="toolbar">
+          <div id="url-helper" class="url-helper">{% if locale == "es" %}Pega una URL valida.{% else %}Paste a valid URL.{% endif %}</div>
+          <button type="button" id="clear-button" class="ghost-button">{% if locale == "es" %}Limpiar{% else %}Clear{% endif %}</button>
+        </div>
       </form>
 
       <div id="status" class="status" aria-live="polite"></div>
 
-      <ol class="steps-strip" aria-label="Pasos del flujo">
-        <li class="step-pill active" data-step="analyze">1. Analizar</li>
-        <li class="step-pill" data-step="choose">2. Elegir</li>
-        <li class="step-pill" data-step="download">3. Descargar</li>
-      </ol>
-
       <section id="result-card" class="result-card hidden" aria-live="polite">
-        <div class="result-header">
-          <img id="thumbnail" class="thumbnail hidden" alt="Miniatura del contenido">
-          <div>
+        <div class="result-hero">
+          <img id="thumbnail" class="thumbnail hidden" alt="{% if locale == 'es' %}Miniatura del contenido{% else %}Content thumbnail{% endif %}">
+          <div class="result-copy">
             <p id="platform-badge" class="platform-badge"></p>
-            <h3 id="media-title"></h3>
+            <h2 id="media-title"></h2>
             <p id="media-meta" class="meta"></p>
             <div id="media-facts" class="media-facts"></div>
-            <div id="selection-summary" class="selection-summary">Elige una opcion para ver una recomendacion clara.</div>
           </div>
         </div>
 
-        <div class="result-actions">
-          <div class="field-block">
-            <label for="format-select">Formato</label>
-            <select id="format-select"></select>
-          </div>
+        <div class="chooser-grid">
+          <section class="chooser-panel">
+            <div class="panel-head">
+              <h3 id="format-title">{% if locale == "es" %}Formato{% else %}Format{% endif %}</h3>
+              <p id="format-panel-text">{% if locale == "es" %}Elige una opcion.{% else %}Choose an option.{% endif %}</p>
+            </div>
+            <div class="format-groups">
+              <section class="format-group">
+                <div class="format-group-head">
+                  <h4 id="video-group-title">{% if locale == "es" %}Video{% else %}Video{% endif %}</h4>
+                  <p id="video-group-text">{% if locale == "es" %}Con imagen y, cuando sea posible, audio compatible.{% else %}With picture and, when possible, compatible audio.{% endif %}</p>
+                </div>
+                <div id="video-format-grid" class="format-grid"></div>
+              </section>
 
-          <div class="field-block">
-            <label for="audio-format">Audio final</label>
-            <select id="audio-format">
-              <option value="mp3">MP3</option>
-              <option value="m4a">M4A</option>
-              <option value="wav">WAV</option>
-            </select>
-          </div>
+              <section class="format-group">
+                <div class="format-group-head">
+                  <h4 id="audio-group-title">{% if locale == "es" %}Audio{% else %}Audio{% endif %}</h4>
+                  <p id="audio-group-text">{% if locale == "es" %}Solo audio para convertir al formato final.{% else %}Audio only, ready for final conversion.{% endif %}</p>
+                </div>
+                <div id="audio-format-grid" class="format-grid"></div>
+              </section>
+            </div>
+          </section>
 
-          <div class="download-panel">
-            <button id="download-button" type="button">Descargar</button>
-          </div>
+          <section class="chooser-panel">
+            <div class="panel-head">
+              <h3 id="output-title">{% if locale == "es" %}Salida{% else %}Output{% endif %}</h3>
+              <p id="output-text">{% if locale == "es" %}Ajustes finales.{% else %}Final settings.{% endif %}</p>
+            </div>
+
+            <div class="stack-block">
+              <span class="field-label subtle-label" id="audio-format-label">{% if locale == "es" %}Audio final{% else %}Final audio{% endif %}</span>
+              <div id="audio-format-chips" class="chip-row" role="radiogroup" aria-label="{% if locale == 'es' %}Formato final de audio{% else %}Final audio format{% endif %}">
+                <button type="button" class="choice-chip active" data-audio-format="mp3">MP3</button>
+                <button type="button" class="choice-chip" data-audio-format="m4a">M4A</button>
+                <button type="button" class="choice-chip" data-audio-format="wav">WAV</button>
+              </div>
+              <select id="audio-format" class="sr-only" aria-hidden="true" tabindex="-1">
+                <option value="mp3">MP3</option>
+                <option value="m4a">M4A</option>
+                <option value="wav">WAV</option>
+              </select>
+            </div>
+
+            <div id="selection-summary" class="selection-summary">{% if locale == "es" %}Selecciona un formato para ver el resumen.{% else %}Select a format to see the summary.{% endif %}</div>
+
+            <div id="download-progress" class="progress-card hidden" aria-live="polite">
+              <div class="progress-head">
+                <div>
+                  <p class="progress-label" id="progress-label">{% if locale == "es" %}Progreso{% else %}Progress{% endif %}</p>
+                  <strong id="progress-title">{% if locale == "es" %}Esperando descarga{% else %}Waiting for download{% endif %}</strong>
+                </div>
+                <span id="progress-percent" class="progress-percent">0%</span>
+              </div>
+              <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+              </div>
+              <p id="progress-text" class="progress-text">{% if locale == "es" %}La descarga aparecera aqui.{% else %}The download will appear here.{% endif %}</p>
+              <a id="download-link" class="download-link hidden" href="#">{% if locale == "es" %}Guardar archivo{% else %}Save file{% endif %}</a>
+            </div>
+
+            <button id="download-button" type="button" class="download-button">{% if locale == "es" %}Descargar{% else %}Download{% endif %}</button>
+          </section>
         </div>
       </section>
-    </section>
-
-    <section class="card recent-card">
-      <div class="section-head">
-        <h3>Recientes</h3>
-        <button id="clear-recent-button" type="button" class="ghost-button">Limpiar</button>
-      </div>
-      <div id="system-status-banner" class="system-banner">
-        Reanalisis rapido disponible durante {{ extract_cache_ttl_seconds // 60 }} min.
-      </div>
-      <div id="recent-list" class="recent-list empty">Todavia no has analizado ningun enlace en este navegador.</div>
     </section>
   </main>
 
   <script>
     window.APP_CONFIG = {
-      defaultTimeout: {{ default_timeout }}
+      defaultTimeout: {{ default_timeout }},
+      locale: "{{ locale }}"
     };
   </script>
-  <iframe id="download-frame" class="download-frame" title="Descarga en segundo plano" tabindex="-1" aria-hidden="true"></iframe>
   <script src="/static/js/app.js" defer></script>
 </body>
 </html>

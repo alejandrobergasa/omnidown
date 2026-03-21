@@ -89,6 +89,31 @@ uvicorn app.main:app --reload
 
 Abre `http://127.0.0.1:8000`.
 
+Si YouTube devuelve `Sign in to confirm you're not a bot`, OmniDown intentara primero reutilizar automaticamente las cookies de un navegador local compatible (`chrome`, `edge`, `firefox`, `brave`) cuando la app corra en la misma maquina que ese navegador.
+
+Si quieres fijar el origen de cookies de forma explicita, configura una de estas opciones en `.env` antes de arrancar la app:
+
+```powershell
+YT_DLP_COOKIES_FROM_BROWSER=chrome
+YT_DLP_COOKIES_BROWSER_PROFILE=Default
+```
+
+o bien:
+
+```powershell
+YT_DLP_COOKIES_FILE=C:\ruta\cookies.txt
+```
+
+`YT_DLP_COOKIES_FROM_BROWSER` solo sirve cuando la app corre en la misma maquina que el navegador. En Docker, lo normal es montar un archivo de cookies exportado y usar `YT_DLP_COOKIES_FILE`.
+
+Tambien puedes ajustar el comportamiento automatico:
+
+```powershell
+YT_DLP_AUTO_COOKIES_FROM_BROWSER=true
+YT_DLP_BROWSER_CANDIDATES=chrome,edge,firefox,brave
+YT_DLP_YOUTUBE_PLAYER_CLIENTS=
+```
+
 ### Con Docker
 
 ```bash

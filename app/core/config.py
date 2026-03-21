@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     extract_cache_max_entries: int = 64
     max_video_height: int = 1080
     max_audio_bitrate: int = 320
+    yt_dlp_cookies_file: str | None = None
+    yt_dlp_cookies_from_browser: str | None = None
+    yt_dlp_cookies_browser_profile: str | None = None
+    yt_dlp_auto_cookies_from_browser: bool = True
+    yt_dlp_browser_candidates: str = "chrome,edge,firefox,brave"
+    yt_dlp_youtube_player_clients: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

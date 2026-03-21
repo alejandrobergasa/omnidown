@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.api.routes import router as api_router
 from app.core.config import settings
+from app.core.i18n import get_request_locale
 from app.core.logging import configure_logging, get_logger
 
 
@@ -32,6 +33,7 @@ app.include_router(api_router)
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
+    locale = get_request_locale(request)
     return templates.TemplateResponse(
         "index.html",
         {
@@ -39,6 +41,7 @@ async def home(request: Request) -> HTMLResponse:
             "app_name": settings.app_name,
             "default_timeout": settings.download_timeout_seconds,
             "extract_cache_ttl_seconds": settings.extract_cache_ttl_seconds,
+            "locale": locale,
         },
     )
 

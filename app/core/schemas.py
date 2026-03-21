@@ -20,6 +20,7 @@ class FormatOption(BaseModel):
     extension: str
     quality: str
     media_type: Literal["video", "audio"]
+    has_embedded_audio: bool = False
     filesize_mb: float | None = None
     note: str | None = None
     recommended: bool = False
@@ -43,3 +44,14 @@ class DownloadIntentResponse(BaseModel):
     download_url: str
     media_type: Literal["video", "audio"]
     format_label: str
+
+
+class DownloadJobResponse(BaseModel):
+    job_id: str
+    status: Literal["pending", "downloading", "processing", "completed", "failed"]
+    progress_percent: float
+    status_text: str
+    filename: str | None = None
+    media_type: Literal["video", "audio"] | None = None
+    format_label: str | None = None
+    file_url: str | None = None
