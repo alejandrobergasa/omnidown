@@ -3,15 +3,17 @@ import os
 import re
 import shutil
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError as YtDlpDownloadError
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.core.schemas import ExtractResponse, FormatOption
+from app.core.schemas import DownloadIntentResponse, ExtractResponse, FormatOption
 
 logger = get_logger(__name__)
 
@@ -31,25 +33,22 @@ class DownloadResult:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
 
+@dataclass
+class CachedExtraction:
+    info: dict
+    response: ExtractResponse
+    expires_at: float
+
+
 class DownloaderService:
     def __init__(self) -> None:
         os.makedirs(settings.download_dir, exist_ok=True)
+        self._extract_cache: dict[str, CachedExtraction] = {}
+        self._cache_lock = Lock()
 
     def extract(self, url: str) -> ExtractResponse:
-        info = self._extract_info(url)
-        formats = self._build_format_options(info)
-        if not formats:
-            raise DownloadError("No se han encontrado formatos descargables para esta URL.")
-
-        platform = info.get("extractor_key") or info.get("extractor") or "unknown"
-        return ExtractResponse(
-            title=info.get("title") or "Untitled",
-            source_url=url,
-            platform=str(platform),
-            thumbnail=info.get("thumbnail"),
-            duration_seconds=info.get("duration"),
-            formats=formats,
-        )
+        _, response = self._get_or_create_extraction(url)
+        return response
 
     def download(
         self,
@@ -59,8 +58,15 @@ class DownloaderService:
         media_type: str,
         audio_format: str,
     ) -> DownloadResult:
+        _, cached_response = self._get_or_create_extraction(url)
+        self._get_selected_option(
+            cached_response,
+            format_id=format_id,
+            media_type=media_type,
+        )
+
         temp_dir = tempfile.mkdtemp(prefix="omnidown-", dir=settings.download_dir)
-        safe_name = self._sanitize_filename(self._extract_info(url).get("title") or "download")
+        safe_name = self._sanitize_filename(cached_response.title or "download")
         output_template = str(Path(temp_dir) / f"{safe_name}.%(ext)s")
         selected_format = self._parse_download_selector(format_id, media_type)
 
@@ -108,6 +114,41 @@ class DownloaderService:
             temp_dir=temp_dir,
         )
 
+    def prepare_download(
+        self,
+        *,
+        url: str,
+        format_id: str,
+        media_type: str,
+        audio_format: str,
+    ) -> DownloadIntentResponse:
+        _, cached_response = self._get_or_create_extraction(url)
+        selected_option = self._get_selected_option(
+            cached_response,
+            format_id=format_id,
+            media_type=media_type,
+        )
+        extension = audio_format if media_type == "audio" else selected_option.extension
+        filename = f"{self._sanitize_filename(cached_response.title or 'download')}.{extension}"
+        return DownloadIntentResponse(
+            filename=filename,
+            download_url=(
+                f"/api/download?url={self._quote(url)}&format_id={self._quote(format_id)}"
+                f"&media_type={self._quote(media_type)}&audio_format={self._quote(audio_format)}"
+            ),
+            media_type=selected_option.media_type,
+            format_label=selected_option.label,
+        )
+
+    def get_cache_stats(self) -> dict[str, int]:
+        self._prune_expired_cache()
+        with self._cache_lock:
+            return {
+                "entries": len(self._extract_cache),
+                "ttl_seconds": settings.extract_cache_ttl_seconds,
+                "max_entries": settings.extract_cache_max_entries,
+            }
+
     def _extract_info(self, url: str) -> dict:
         opts = {
             "noplaylist": True,
@@ -124,6 +165,102 @@ class DownloaderService:
         if not info:
             raise DownloadError("No se ha podido resolver la URL proporcionada.")
         return info
+
+    def _get_or_create_extraction(self, url: str) -> tuple[dict, ExtractResponse]:
+        cached = self._get_cached_extraction(url)
+        if cached:
+            return cached.info, cached.response.model_copy(deep=True)
+
+        info = self._extract_info(url)
+        response = self._build_extract_response(url, info)
+        self._store_cached_extraction(url, info, response)
+        return info, response.model_copy(deep=True)
+
+    @staticmethod
+    def _quote(value: str) -> str:
+        from urllib.parse import quote
+
+        return quote(value, safe="")
+
+    @staticmethod
+    def _get_selected_option(
+        response: ExtractResponse,
+        *,
+        format_id: str,
+        media_type: str,
+    ) -> FormatOption:
+        selected_option = next(
+            (
+                fmt
+                for fmt in response.formats
+                if fmt.format_id == format_id and fmt.media_type == media_type
+            ),
+            None,
+        )
+        if not selected_option:
+            raise DownloadError("El formato elegido ya no es valido. Analiza la URL de nuevo.")
+        return selected_option
+
+    def _build_extract_response(self, url: str, info: dict) -> ExtractResponse:
+        formats = self._build_format_options(info)
+        if not formats:
+            raise DownloadError("No se han encontrado formatos descargables para esta URL.")
+
+        platform = info.get("extractor_key") or info.get("extractor") or "unknown"
+        return ExtractResponse(
+            title=info.get("title") or "Untitled",
+            source_url=url,
+            platform=str(platform),
+            uploader=info.get("uploader") or info.get("channel"),
+            uploader_url=info.get("uploader_url") or info.get("channel_url"),
+            view_count=info.get("view_count"),
+            upload_date=info.get("upload_date"),
+            thumbnail=info.get("thumbnail"),
+            duration_seconds=info.get("duration"),
+            formats=formats,
+        )
+
+    def _get_cached_extraction(self, url: str) -> CachedExtraction | None:
+        self._prune_expired_cache()
+        with self._cache_lock:
+            cached = self._extract_cache.get(url)
+            if not cached:
+                return None
+            if cached.expires_at <= time.time():
+                self._extract_cache.pop(url, None)
+                return None
+            return cached
+
+    def _store_cached_extraction(self, url: str, info: dict, response: ExtractResponse) -> None:
+        expires_at = time.time() + settings.extract_cache_ttl_seconds
+        with self._cache_lock:
+            self._extract_cache[url] = CachedExtraction(
+                info=info,
+                response=response.model_copy(deep=True),
+                expires_at=expires_at,
+            )
+            self._trim_cache_unlocked()
+
+    def _prune_expired_cache(self) -> None:
+        now = time.time()
+        with self._cache_lock:
+            expired_urls = [
+                url for url, cached in self._extract_cache.items() if cached.expires_at <= now
+            ]
+            for url in expired_urls:
+                self._extract_cache.pop(url, None)
+
+    def _trim_cache_unlocked(self) -> None:
+        if len(self._extract_cache) <= settings.extract_cache_max_entries:
+            return
+
+        overflow = len(self._extract_cache) - settings.extract_cache_max_entries
+        oldest_urls = sorted(
+            self._extract_cache.items(),
+            key=lambda item: item[1].expires_at,
+        )[:overflow]
+        for url, _ in oldest_urls:
+            self._extract_cache.pop(url, None)
 
     def _build_format_options(self, info: dict) -> list[FormatOption]:
         formats: list[FormatOption] = []
@@ -163,6 +300,7 @@ class DownloaderService:
                         media_type="video",
                         filesize_mb=self._to_mb(filesize),
                         note=item.get("format_note"),
+                        recommended=False,
                     )
                 )
 
@@ -182,11 +320,42 @@ class DownloaderService:
                         media_type="audio",
                         filesize_mb=self._to_mb(filesize),
                         note=item.get("format_note"),
+                        recommended=False,
                     )
                 )
 
         formats.sort(key=self._sort_key, reverse=True)
+        self._mark_recommended_formats(formats)
         return formats
+
+    @staticmethod
+    def _mark_recommended_formats(formats: list[FormatOption]) -> None:
+        preferred_video = next(
+            (
+                fmt
+                for fmt in formats
+                if fmt.media_type == "video"
+                and fmt.extension == "mp4"
+                and DownloaderService._quality_rank(fmt.quality) <= 1080
+            ),
+            None,
+        )
+        preferred_audio = next(
+            (
+                fmt
+                for fmt in formats
+                if fmt.media_type == "audio" and fmt.extension in {"m4a", "mp4", "webm"}
+            ),
+            None,
+        )
+
+        if preferred_video:
+            preferred_video.recommended = True
+        elif formats:
+            formats[0].recommended = True
+
+        if preferred_audio:
+            preferred_audio.recommended = True
 
     @staticmethod
     def _friendly_error(message: str) -> str:

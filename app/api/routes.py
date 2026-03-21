@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from app.core.logging import get_logger
-from app.core.schemas import ExtractRequest, ExtractResponse
+from app.core.schemas import DownloadIntentResponse, DownloadRequest, ExtractRequest, ExtractResponse
 from app.services.downloader import DownloadError, downloader_service
 
 router = APIRouter(prefix="/api", tags=["downloads"])
@@ -21,6 +21,32 @@ async def extract_formats(payload: ExtractRequest) -> ExtractResponse:
         raise HTTPException(
             status_code=500,
             detail="No hemos podido analizar la URL. Intenta de nuevo en unos segundos.",
+        ) from exc
+
+
+@router.post("/download-intent", response_model=DownloadIntentResponse)
+async def prepare_download(payload: DownloadRequest) -> DownloadIntentResponse:
+    try:
+        return downloader_service.prepare_download(
+            url=str(payload.url),
+            format_id=payload.format_id,
+            media_type=payload.media_type,
+            audio_format=payload.audio_format,
+        )
+    except DownloadError as exc:
+        logger.warning(
+            "prepare_download_failed url=%s format_id=%s media_type=%s error=%s",
+            str(payload.url),
+            payload.format_id,
+            payload.media_type,
+            str(exc),
+        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        logger.exception("unexpected_prepare_download_error url=%s", str(payload.url))
+        raise HTTPException(
+            status_code=500,
+            detail="No hemos podido preparar la descarga. Intenta de nuevo.",
         ) from exc
 
 
@@ -60,3 +86,11 @@ async def download_file(
             status_code=500,
             detail="La descarga ha fallado. Prueba con otra calidad o vuelve a intentarlo.",
         ) from exc
+
+
+@router.get("/system-status")
+async def system_status():
+    return {
+        "status": "ok",
+        "cache": downloader_service.get_cache_stats(),
+    }

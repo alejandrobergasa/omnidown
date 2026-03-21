@@ -38,6 +38,7 @@ async def home(request: Request) -> HTMLResponse:
             "request": request,
             "app_name": settings.app_name,
             "default_timeout": settings.download_timeout_seconds,
+            "extract_cache_ttl_seconds": settings.extract_cache_ttl_seconds,
         },
     )
 
