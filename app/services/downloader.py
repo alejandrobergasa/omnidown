@@ -572,8 +572,6 @@ class DownloaderService:
             height = item.get("height")
             width = item.get("width")
             fps = item.get("fps")
-            vcodec = item.get("vcodec")
-            acodec = item.get("acodec")
             filesize = item.get("filesize") or item.get("filesize_approx")
             protocol = str(item.get("protocol") or "")
             format_note = item.get("format_note")
@@ -583,8 +581,16 @@ class DownloaderService:
             if not format_id or not ext:
                 continue
 
-            is_video = vcodec not in (None, "none")
-            has_audio = acodec not in (None, "none")
+            is_video, has_audio = self._resolve_media_flags(
+                ext=ext,
+                protocol=protocol,
+                format_note=format_note,
+                abr=item.get("abr"),
+                width=width,
+                height=height,
+                vcodec=item.get("vcodec"),
+                acodec=item.get("acodec"),
+            )
             if not self._is_safe_download_candidate(
                 protocol=protocol,
                 format_note=format_note,
@@ -594,7 +600,8 @@ class DownloaderService:
                 continue
 
             if is_video and ext in {"mp4", "webm", "mkv"}:
-                if height and height > settings.max_video_height:
+                normalized_height = self._normalized_video_height(width=width, height=height)
+                if normalized_height and normalized_height > settings.max_video_height:
                     continue
                 if not has_audio and not self._can_pair_video_with_audio(
                     video_ext=ext,
@@ -647,17 +654,70 @@ class DownloaderService:
         return formats
 
     @staticmethod
+    def _resolve_media_flags(
+        *,
+        ext: str,
+        protocol: str,
+        format_note: str | None,
+        abr: int | float | None,
+        width: int | None,
+        height: int | None,
+        vcodec: str | None,
+        acodec: str | None,
+    ) -> tuple[bool, bool]:
+        is_video = vcodec not in (None, "none")
+        has_audio = acodec not in (None, "none")
+
+        if vcodec == "none" and acodec == "none":
+            return False, False
+
+        lowered_protocol = protocol.lower()
+        lowered_note = (format_note or "").lower()
+
+        # Some extractors expose a direct MP4/WebM URL without codec metadata.
+        # When dimensions are present, treat it as a muxed video file so it remains selectable.
+        if not is_video and vcodec is None and (width or height):
+            is_video = True
+            if acodec is None and ext in {"mp4", "webm", "mkv", "mov", "m4v"}:
+                has_audio = True
+
+        # Some progressive MP4 URLs arrive without codec metadata or dimensions
+        # (for example simple SD/HD URLs on certain Facebook pages).
+        if (
+            not is_video
+            and not has_audio
+            and vcodec is None
+            and acodec is None
+            and ext in {"mp4", "webm", "mkv", "mov", "m4v"}
+            and ("http" in lowered_protocol or not lowered_protocol)
+            and abr in (None, 0)
+            and "audio" not in lowered_note
+        ):
+            return True, True
+
+        if not is_video and not has_audio and acodec is None and ext in {"m4a", "mp3", "aac", "wav", "ogg", "opus", "flac"}:
+            has_audio = True
+
+        return is_video, has_audio
+
+    @staticmethod
     def _collect_safe_audio_sources(info: dict) -> set[str]:
         safe_exts: set[str] = set()
         for item in info.get("formats", []):
             ext = item.get("ext")
-            acodec = item.get("acodec")
-            vcodec = item.get("vcodec")
             protocol = str(item.get("protocol") or "")
             if not ext or ext not in {"m4a", "mp4", "webm"}:
                 continue
-            has_audio = acodec not in (None, "none")
-            is_video = vcodec not in (None, "none")
+            is_video, has_audio = DownloaderService._resolve_media_flags(
+                ext=ext,
+                protocol=protocol,
+                format_note=item.get("format_note"),
+                abr=item.get("abr"),
+                width=item.get("width"),
+                height=item.get("height"),
+                vcodec=item.get("vcodec"),
+                acodec=item.get("acodec"),
+            )
             if not has_audio or is_video:
                 continue
             if not DownloaderService._is_safe_download_candidate(
@@ -815,9 +875,7 @@ class DownloaderService:
                 }
 
         if url and self._is_tiktok_url(url):
-            opts.setdefault("extractor_args", {})["tiktok"] = {
-                "webpage_download": True,
-            }
+            pass  # No special args needed for TikTok
 
         if url and self._is_instagram_url(url):
             if settings.yt_dlp_username and settings.yt_dlp_password:
@@ -847,7 +905,7 @@ class DownloaderService:
         for attempt_name, attempt_opts in self._build_ydl_attempts(ydl_opts):
             try:
                 with YoutubeDL(attempt_opts) as ydl:
-                    return ydl.extract_info(url, download=False, process=False)
+                    return ydl.extract_info(url, download=False)
             except YtDlpDownloadError as exc:
                 last_exc = exc
                 if self._should_retry_ydl_attempt(attempt_name, str(exc)):
@@ -1039,7 +1097,7 @@ class DownloaderService:
     @staticmethod
     def _is_tiktok_url(url: str) -> bool:
         hostname = (urlparse(url).hostname or "").lower()
-        return hostname in {"tiktok.com", "www.tiktok.com", "vm.tiktok.com"}
+        return hostname in {"tiktok.com", "www.tiktok.com", "vm.tiktok.com", "m.tiktok.com"}
 
     @staticmethod
     def _is_instagram_url(url: str) -> bool:
@@ -1082,8 +1140,15 @@ class DownloaderService:
         return 0
 
     @staticmethod
+    def _normalized_video_height(*, width: int | None, height: int | None) -> int | None:
+        if width and height:
+            return min(width, height)
+        return height or width
+
+    @staticmethod
     def _build_video_quality(height: int | None, width: int | None, fps: int | float | None) -> str:
-        quality = f"{height}p" if height else "video"
+        normalized_height = DownloaderService._normalized_video_height(width=width, height=height)
+        quality = f"{normalized_height}p" if normalized_height else "video"
         if width and height:
             quality = f"{quality} {width}x{height}"
         if fps:
