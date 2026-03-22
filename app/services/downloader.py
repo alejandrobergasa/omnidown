@@ -814,6 +814,32 @@ class DownloaderService:
                     }
                 }
 
+        if url and self._is_tiktok_url(url):
+            opts.setdefault("extractor_args", {})["tiktok"] = {
+                "webpage_download": True,
+            }
+
+        if url and self._is_instagram_url(url):
+            if settings.yt_dlp_username and settings.yt_dlp_password:
+                opts.setdefault("extractor_args", {})["instagram"] = {
+                    "username": settings.yt_dlp_username,
+                    "password": settings.yt_dlp_password,
+                }
+
+        if url and self._is_facebook_url(url):
+            if settings.yt_dlp_username and settings.yt_dlp_password:
+                opts.setdefault("extractor_args", {})["facebook"] = {
+                    "username": settings.yt_dlp_username,
+                    "password": settings.yt_dlp_password,
+                }
+
+        if url and self._is_twitter_url(url):
+            if settings.yt_dlp_username and settings.yt_dlp_password:
+                opts.setdefault("extractor_args", {})["twitter"] = {
+                    "username": settings.yt_dlp_username,
+                    "password": settings.yt_dlp_password,
+                }
+
         return opts
 
     def _extract_with_retries(self, *, url: str, locale: str, ydl_opts: dict) -> dict:
@@ -926,7 +952,6 @@ class DownloaderService:
         attempts: list[tuple[str, dict]] = []
         if settings.yt_dlp_cookies_file:
             attempts.append(("cookiefile", {"cookiefile": settings.yt_dlp_cookies_file}))
-            return attempts
 
         if settings.yt_dlp_cookies_from_browser:
             browser_spec = [settings.yt_dlp_cookies_from_browser]
@@ -938,7 +963,6 @@ class DownloaderService:
                     {"cookiesfrombrowser": tuple(browser_spec)},
                 )
             )
-            return attempts
 
         if settings.yt_dlp_auto_cookies_from_browser:
             for browser_name in self._detect_browser_cookie_sources():
@@ -948,6 +972,14 @@ class DownloaderService:
                         {"cookiesfrombrowser": (browser_name,)},
                     )
                 )
+
+        if settings.yt_dlp_username and settings.yt_dlp_password:
+            attempts.append(
+                (
+                    "credentials",
+                    {"username": settings.yt_dlp_username, "password": settings.yt_dlp_password},
+                )
+            )
 
         return attempts
 
@@ -1003,6 +1035,26 @@ class DownloaderService:
             "music.youtube.com",
             "youtu.be",
         }
+
+    @staticmethod
+    def _is_tiktok_url(url: str) -> bool:
+        hostname = (urlparse(url).hostname or "").lower()
+        return hostname in {"tiktok.com", "www.tiktok.com", "vm.tiktok.com"}
+
+    @staticmethod
+    def _is_instagram_url(url: str) -> bool:
+        hostname = (urlparse(url).hostname or "").lower()
+        return hostname in {"instagram.com", "www.instagram.com"}
+
+    @staticmethod
+    def _is_facebook_url(url: str) -> bool:
+        hostname = (urlparse(url).hostname or "").lower()
+        return hostname in {"facebook.com", "www.facebook.com", "fb.com", "m.facebook.com"}
+
+    @staticmethod
+    def _is_twitter_url(url: str) -> bool:
+        hostname = (urlparse(url).hostname or "").lower()
+        return hostname in {"x.com", "www.x.com", "twitter.com", "www.twitter.com"}
 
     @staticmethod
     def _split_csv(value: str | None) -> list[str]:

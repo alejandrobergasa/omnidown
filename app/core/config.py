@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     yt_dlp_auto_cookies_from_browser: bool = True
     yt_dlp_browser_candidates: str = "chrome,edge,firefox,brave"
     yt_dlp_youtube_player_clients: str = ""
+    yt_dlp_username: str | None = None
+    yt_dlp_password: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

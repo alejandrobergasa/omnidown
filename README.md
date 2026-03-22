@@ -1,6 +1,6 @@
 # OmniDown
 
-MVP de una aplicación web pública para descargar vídeo y audio desde plataformas compatibles con `yt-dlp`, priorizando simplicidad, despliegue rápido y evolución sencilla.
+MVP de una aplicación web pública para descargar vídeo y audio desde plataformas compatibles con `yt-dlp` (YouTube, TikTok, Instagram, Facebook, X/Twitter, etc.), priorizando simplicidad, despliegue rápido y evolución sencilla.
 
 ## Requisitos locales en Windows
 
@@ -41,7 +41,7 @@ Flask también serviría, pero aquí FastAPI da mejor base de producción sin co
 
 1. El usuario pega una URL en `/`.
 2. El frontend llama a `POST /api/extract`.
-3. El backend usa `yt-dlp` para detectar plataforma, título, miniatura y formatos.
+3. El backend usa `yt-dlp` para detectar plataforma (YouTube, TikTok, Instagram, Facebook, X/Twitter, etc.), título, miniatura y formatos.
 4. El usuario elige una opción y dispara `GET /api/download`.
 5. El backend descarga a un directorio temporal, devuelve el archivo y limpia después.
 
@@ -97,6 +97,15 @@ Si quieres fijar el origen de cookies de forma explicita, configura una de estas
 YT_DLP_COOKIES_FROM_BROWSER=chrome
 YT_DLP_COOKIES_BROWSER_PROFILE=Default
 ```
+
+Alternativamente, para servidores remotos o cuando no hay navegador local, puedes configurar credenciales de una cuenta dedicada (Google para YouTube, Instagram para Instagram, etc.):
+
+```powershell
+YT_DLP_USERNAME=tu_cuenta@gmail.com
+YT_DLP_PASSWORD=tu_password
+```
+
+**Nota:** Crear cuentas temporales automáticamente no es posible debido a las verificaciones de seguridad de las plataformas (requiere verificación de teléfono o email). Usa cuentas dedicadas en su lugar.
 
 o bien:
 
